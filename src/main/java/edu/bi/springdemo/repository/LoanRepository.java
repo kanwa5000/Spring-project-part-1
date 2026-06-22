@@ -10,4 +10,6 @@ import java.util.List;
 public interface LoanRepository extends CrudRepository<Loan, Integer> {
 
     List<Loan> findByUser_Id(Integer userId);
+
+    void deleteByUser_Id(Integer userId);
 }

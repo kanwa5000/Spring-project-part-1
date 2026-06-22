@@ -28,6 +28,16 @@ public class Loan {
 
     private LocalDate returnDate;
 
+    @Column(nullable = false, length = 30)
+    private String status = "BORROW_REQUESTED";
+
+    @PrePersist
+    public void prePersist() {
+        if (status == null || status.isBlank()) {
+            status = "BORROW_REQUESTED";
+        }
+    }
+
     public Integer getLoanId() {
         return loanId;
     }
@@ -74,5 +84,13 @@ public class Loan {
 
     public void setReturnDate(LocalDate returnDate) {
         this.returnDate = returnDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

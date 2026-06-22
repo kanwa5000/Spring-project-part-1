@@ -9,8 +9,7 @@ public class SpringdemoApplication {
 
 	public static void main(String[] args) {
 
-		
-		System.out.println(new BCryptPasswordEncoder().encode("admin123"));
+
 
 		SpringApplication.run(SpringdemoApplication.class, args);
 	}

@@ -1,23 +1,40 @@
 package edu.bi.springdemo.service;
 
+import edu.bi.springdemo.entity.Book;
 import edu.bi.springdemo.entity.DTO.CreateUserDTO;
+import edu.bi.springdemo.entity.Loan;
 import edu.bi.springdemo.entity.User;
 import edu.bi.springdemo.entity.exception.InvalidRequestException;
 import edu.bi.springdemo.entity.exception.UserAlreadyExistsException;
 import edu.bi.springdemo.entity.exception.UserNotFoundException;
+import edu.bi.springdemo.repository.BookRepository;
+import edu.bi.springdemo.repository.LoanRepository;
 import edu.bi.springdemo.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class UserService {
 
+    private static final String STATUS_BORROW_APPROVED = "BORROW_APPROVED";
+    private static final String STATUS_RETURN_REQUESTED = "RETURN_REQUESTED";
+    private static final String STATUS_RETURN_APPROVED = "RETURN_APPROVED";
+
     private final UserRepository userRepository;
+    private final LoanRepository loanRepository;
+    private final BookRepository bookRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository,
+                       LoanRepository loanRepository,
+                       BookRepository bookRepository,
                        PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.loanRepository = loanRepository;
+        this.bookRepository = bookRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -74,16 +91,40 @@ public class UserService {
         return userRepository.save(existingUser);
     }
 
+    @Transactional
     public void deleteUser(Integer id) {
         if (id == null || id <= 0) {
             throw new InvalidRequestException("User id must be a positive number");
         }
 
-        if (!userRepository.existsById(id)) {
-            throw new UserNotFoundException("User with id " + id + " not found");
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User with id " + id + " not found"));
+
+        List<Loan> userLoans = loanRepository.findByUser_Id(user.getId());
+
+        for (Loan loan : userLoans) {
+            String status = loan.getStatus();
+
+            boolean bookWasTakenFromAvailableCopies =
+                    STATUS_BORROW_APPROVED.equals(status) ||
+                            STATUS_RETURN_REQUESTED.equals(status);
+
+            if (bookWasTakenFromAvailableCopies && loan.getReturnDate() == null) {
+                Book book = loan.getBook();
+
+                if (book != null) {
+                    Long availableCopies = book.getAvailableCopies() == null
+                            ? 0
+                            : book.getAvailableCopies();
+
+                    book.setAvailableCopies(availableCopies + 1);
+                    bookRepository.save(book);
+                }
+            }
         }
 
-        userRepository.deleteById(id);
+        loanRepository.deleteByUser_Id(user.getId());
+        userRepository.delete(user);
     }
 
     public Iterable<User> getAllUsers() {
@@ -97,6 +138,15 @@ public class UserService {
 
         return userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User with id " + id + " not found"));
+    }
+
+    public User getUserByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new InvalidRequestException("Username cannot be blank");
+        }
+
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User with username '" + username + "' not found"));
     }
 
     private void validateCreateUserDTO(CreateUserDTO dto, boolean passwordRequired) {

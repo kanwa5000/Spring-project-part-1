@@ -6,6 +6,8 @@ import edu.bi.springdemo.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -31,6 +33,11 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable Integer id) {
         userService.deleteUser(id);
+    }
+
+    @GetMapping("/me")
+    public User getCurrentUser(Principal principal) {
+        return userService.getUserByUsername(principal.getName());
     }
 
     @GetMapping
